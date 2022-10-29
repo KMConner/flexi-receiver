@@ -61,6 +61,10 @@ fn digits_to_f64(digits: [EightDigit; 3]) -> Result<f64> {
     Ok(base)
 }
 
+pub fn parse(bin: &[u8; 3]) -> Result<f64> {
+    digits_to_f64(parse_packet(bin)?)
+}
+
 #[cfg(test)]
 mod test {
     use crate::digit::packet::{EightDigit, parse_packet, SingleDigit};
@@ -135,6 +139,16 @@ mod test {
                 EightDigit { digit: SingleDigit::Two, has_point: false },
                 EightDigit { digit: SingleDigit::Three, has_point: false }]);
             assert_eq!(result.unwrap_err(), Error::InvalidDecimalPointError);
+        }
+    }
+
+    mod parse_test {
+        use crate::digit::packet::parse;
+
+        #[test]
+        fn parse_test() {
+            let actual = parse(&[0b00000111, 0b11011011, 0b01101101]).unwrap();
+            assert_eq!(72.5f64, actual);
         }
     }
 }
