@@ -1,6 +1,6 @@
 use super::errors::{Error, Result};
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 #[repr(u8)]
 enum SingleDigit {
     Zero = 0,
@@ -49,6 +49,18 @@ fn parse_packet(packet: &[u8; 3]) -> Result<[EightDigit; 3]> {
     ])
 }
 
+fn digits_to_f64(digits: [EightDigit; 3]) -> Result<f64> {
+    if digits[2].has_point || digits[0].has_point {
+        return Err(Error::InvalidDecimalPointError);
+    }
+    let base = digits[0].digit as u16 * 100 + digits[1].digit as u16 * 10 + digits[2].digit as u16;
+    let mut base = base as f64;
+    if digits[1].has_point {
+        base /= 10.0;
+    }
+    Ok(base)
+}
+
 #[cfg(test)]
 mod test {
     use crate::digit::packet::{EightDigit, parse_packet, SingleDigit};
@@ -93,5 +105,36 @@ mod test {
         ];
         let actual = parse_packet(&[0b00000111, 0b11011011, 0b1111101]).unwrap();
         assert_eq!(expected, actual);
+    }
+
+    mod digits_to_f64_test {
+        use crate::digit::errors::Error;
+        use crate::digit::packet::{digits_to_f64, EightDigit, SingleDigit};
+
+        #[test]
+        fn success_with_decimal_point() {
+            let expected = 72.5;
+            let actual = digits_to_f64([EightDigit { digit: SingleDigit::Seven, has_point: false },
+                EightDigit { digit: SingleDigit::Two, has_point: true },
+                EightDigit { digit: SingleDigit::Five, has_point: false }]).unwrap();
+            assert_eq!(expected, actual);
+        }
+
+        #[test]
+        fn success_without_decimal_point() {
+            let expected = 123f64;
+            let actual = digits_to_f64([EightDigit { digit: SingleDigit::One, has_point: false },
+                EightDigit { digit: SingleDigit::Two, has_point: false },
+                EightDigit { digit: SingleDigit::Three, has_point: false }]).unwrap();
+            assert_eq!(expected, actual);
+        }
+
+        #[test]
+        fn fail_on_invalid_decimal_point() {
+            let result = digits_to_f64([EightDigit { digit: SingleDigit::One, has_point: true },
+                EightDigit { digit: SingleDigit::Two, has_point: false },
+                EightDigit { digit: SingleDigit::Three, has_point: false }]);
+            assert_eq!(result.unwrap_err(), Error::InvalidDecimalPointError);
+        }
     }
 }
