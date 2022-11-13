@@ -11,6 +11,10 @@ fn main() {
             Ok(data) => {
                 data
             }
+            Err(serial::Error::DeviceTurnedOffError)=>{
+                println!("no data");
+                continue;
+            }
             Err(e) => {
                 println!("{:?}", e);
                 continue;

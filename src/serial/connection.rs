@@ -64,6 +64,9 @@ impl<R: Read> FlexiConnection<R> {
             (ParserState::WaitStart, START_BYTE) => {
                 Ok(ParserState::WaitLength)
             }
+            (ParserState::WaitStart, 0) => {
+                Err(Error::DeviceTurnedOffError)
+            }
             (ParserState::WaitStart, b) => {
                 Err(Error::MalformedPacketError(format!("failed to get first byte. got {:X}", b)))
             }

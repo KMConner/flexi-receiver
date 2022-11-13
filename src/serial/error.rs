@@ -2,8 +2,8 @@ use thiserror::Error as ThisError;
 
 #[derive(ThisError, Debug)]
 pub enum Error {
-    #[error("device is not available: {0}")]
-    NoDevice(String),
+    #[error("device is turned off")]
+    DeviceTurnedOffError,
 
     #[error(transparent)]
     IoError(#[from] std::io::Error),
