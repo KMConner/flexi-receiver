@@ -15,8 +15,10 @@ fn main() {
     let (stop_tx, stop_rx) = channel();
 
     let receiver_handle = thread::spawn(move || {
-        let stop = stop_rx.try_recv().is_ok();
-        while stop {
+        loop {
+            if stop_rx.try_recv().is_ok() {
+                break;
+            }
             let packet = match flexi_connection.read_packet() {
                 Ok(data) => {
                     data
