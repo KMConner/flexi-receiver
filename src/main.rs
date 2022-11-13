@@ -33,6 +33,6 @@ fn main() {
                 continue;
             }
         };
-        println!("Current height: {}", height);
+        println!("Current height: {:3.1}", height);
     }
 }
