@@ -12,11 +12,13 @@ fn main() {
     let serial_connection = serialport::new("/dev/ttyS0", 9600).open().unwrap();
     let mut flexi_connection = serial::FlexiConnection::new(serial_connection);
 
-    let (stop_tx, stop_rx) = channel();
+    let (stop_receive_tx, stop_receive_rx) = channel();
+    let (stop_export_tx, stop_export_rx) = channel();
+    let (height_tx, height_rx) = channel();
 
     let receiver_handle = thread::spawn(move || {
         loop {
-            if stop_rx.try_recv().is_ok() {
+            if stop_receive_rx.try_recv().is_ok() {
                 break;
             }
             let packet = match flexi_connection.read_packet() {
@@ -24,7 +26,6 @@ fn main() {
                     data
                 }
                 Err(serial::Error::DeviceTurnedOffError) => {
-                    println!("no data");
                     continue;
                 }
                 Err(e) => {
@@ -49,11 +50,27 @@ fn main() {
                     continue;
                 }
             };
-            println!("Current height: {:3.1}", height);
+            height_tx.send(height).unwrap();
         }
     });
 
-    sleep(Duration::from_secs(10));
-    stop_tx.send(()).unwrap();
+    let export_thread = thread::spawn(move || {
+        let mut height = f64::NAN;
+        loop {
+            if stop_export_rx.recv().is_ok() {
+                break;
+            }
+            if let Some(h) = height_rx.try_iter().last() {
+                height = h;
+            }
+            println!("height: {}", height);
+            thread::sleep(Duration::from_millis(500));
+        }
+    });
+
+    sleep(Duration::from_secs(30));
+    stop_receive_tx.send(()).unwrap();
+    stop_export_tx.send(()).unwrap();
     receiver_handle.join().unwrap();
+    export_thread.join().unwrap();
 }
