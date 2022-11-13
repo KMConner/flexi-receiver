@@ -60,7 +60,7 @@ fn main() {
     let export_thread = thread::spawn(move || {
         let mut latest_height = 0;
         loop {
-            if stop_export_rx.recv().is_ok() {
+            if stop_export_rx.try_recv().is_ok() {
                 break;
             }
             latest_height= height2.load(Ordering::Relaxed);
