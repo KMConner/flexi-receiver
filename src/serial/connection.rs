@@ -1,7 +1,7 @@
 use std::io::Read;
 use super::{Error, Result};
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 enum ParserState {
     WaitStart,
     WaitLength,
@@ -13,7 +13,6 @@ enum ParserState {
 
 pub struct FlexiConnection<R: Read> {
     connection: R,
-    parser_state: ParserState,
 }
 
 const START_BYTE: u8 = 0x9B;
@@ -24,11 +23,11 @@ impl<R: Read> FlexiConnection<R> {
     pub fn new(read: R) -> Self {
         FlexiConnection {
             connection: read,
-            parser_state: ParserState::WaitStart,
         }
     }
 
     pub fn read_packet(&mut self) -> Result<Vec<u8>> {
+        let mut current_state = ParserState::WaitStart;
         loop {
             let mut byte: [u8; 1] = [0];
             let result = self.connection.read(&mut byte);
@@ -50,13 +49,11 @@ impl<R: Read> FlexiConnection<R> {
 
             let byte = byte[0];
 
-            let state = Self::update_state(self.parser_state.clone(), byte)?;
-            if let ParserState::End(body) = state {
-                self.parser_state = ParserState::WaitStart;
-                return Ok(body);
+            current_state = Self::update_state(current_state, byte)?;
+            if let ParserState::End(body) = current_state {
+                return Ok(body.clone());
             }
-            self.parser_state = state;
-        }
+        };
     }
 
     fn update_state(current: ParserState, byte: u8) -> Result<ParserState> {
@@ -103,6 +100,8 @@ impl<R: Read> FlexiConnection<R> {
 #[cfg(test)]
 mod test {
     use crate::serial::connection::FlexiConnection;
+    use crate::serial::Error;
+    use std::mem::discriminant;
 
     #[test]
     fn test_up() {
@@ -118,5 +117,26 @@ mod test {
         let mut conn: FlexiConnection<&[u8]> = FlexiConnection::new(bin.as_ref());
         let body = conn.read_packet().unwrap();
         assert_eq!(vec![0x12, 0x07, 0xCF, 0x66], body)
+    }
+
+    #[test]
+    fn test_multiple() {
+        let bin: Vec<u8> = vec![0x9B, 0x07, 0x12, 0x07, 0xCF, 0x66, 0xA3, 0xF0, 0x9D,
+                                0x9B, 0x07, 0x13, 0x07, 0xCF, 0x66, 0xA3, 0xF0, 0x9D];
+        let mut conn: FlexiConnection<&[u8]> = FlexiConnection::new(bin.as_ref());
+        let body = conn.read_packet().unwrap();
+        assert_eq!(vec![0x12, 0x07, 0xCF, 0x66], body);
+        let body = conn.read_packet().unwrap();
+        assert_eq!(vec![0x13, 0x07, 0xCF, 0x66], body);
+    }
+
+    #[test]
+    fn test_off_after_error() {
+        let bin: Vec<u8> = vec![0x9B, 0x07, 0x12, 0x07, 0xCF, 0x66, 0xA3, 0xF0, 0x00, 0x00];
+        let mut conn: FlexiConnection<&[u8]> = FlexiConnection::new(bin.as_ref());
+        let result = conn.read_packet().unwrap_err();
+        assert_eq!(discriminant(&result), discriminant(&Error::MalformedPacketError(String::default())));
+        let result = conn.read_packet().unwrap_err();
+        assert_eq!(discriminant(&result), discriminant(&Error::DeviceTurnedOffError));
     }
 }
