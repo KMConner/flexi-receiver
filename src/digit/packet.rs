@@ -49,20 +49,19 @@ fn parse_packet(packet: &[u8; 3]) -> Result<[EightDigit; 3]> {
     ])
 }
 
-fn digits_to_f64(digits: [EightDigit; 3]) -> Result<f64> {
+fn digits_to_millis(digits: [EightDigit; 3]) -> Result<u32> {
     if digits[2].has_point || digits[0].has_point {
         return Err(Error::InvalidDecimalPointError);
     }
-    let base = digits[0].digit as u16 * 100 + digits[1].digit as u16 * 10 + digits[2].digit as u16;
-    let mut base = base as f64;
-    if digits[1].has_point {
-        base /= 10.0;
+    let mut base = digits[0].digit as u32 * 100 + digits[1].digit as u32 * 10 + digits[2].digit as u32;
+    if !digits[1].has_point {
+        base *= 10;
     }
     Ok(base)
 }
 
-pub fn parse(bin: &[u8; 3]) -> Result<f64> {
-    digits_to_f64(parse_packet(bin)?)
+pub fn parse(bin: &[u8; 3]) -> Result<u32> {
+    digits_to_millis(parse_packet(bin)?)
 }
 
 #[cfg(test)]
@@ -113,12 +112,12 @@ mod test {
 
     mod digits_to_f64_test {
         use crate::digit::errors::Error;
-        use crate::digit::packet::{digits_to_f64, EightDigit, SingleDigit};
+        use crate::digit::packet::{digits_to_millis, EightDigit, SingleDigit};
 
         #[test]
         fn success_with_decimal_point() {
-            let expected = 72.5;
-            let actual = digits_to_f64([EightDigit { digit: SingleDigit::Seven, has_point: false },
+            let expected = 725;
+            let actual = digits_to_millis([EightDigit { digit: SingleDigit::Seven, has_point: false },
                 EightDigit { digit: SingleDigit::Two, has_point: true },
                 EightDigit { digit: SingleDigit::Five, has_point: false }]).unwrap();
             assert_eq!(expected, actual);
@@ -126,8 +125,8 @@ mod test {
 
         #[test]
         fn success_without_decimal_point() {
-            let expected = 123f64;
-            let actual = digits_to_f64([EightDigit { digit: SingleDigit::One, has_point: false },
+            let expected = 1230;
+            let actual = digits_to_millis([EightDigit { digit: SingleDigit::One, has_point: false },
                 EightDigit { digit: SingleDigit::Two, has_point: false },
                 EightDigit { digit: SingleDigit::Three, has_point: false }]).unwrap();
             assert_eq!(expected, actual);
@@ -135,7 +134,7 @@ mod test {
 
         #[test]
         fn fail_on_invalid_decimal_point() {
-            let result = digits_to_f64([EightDigit { digit: SingleDigit::One, has_point: true },
+            let result = digits_to_millis([EightDigit { digit: SingleDigit::One, has_point: true },
                 EightDigit { digit: SingleDigit::Two, has_point: false },
                 EightDigit { digit: SingleDigit::Three, has_point: false }]);
             assert_eq!(result.unwrap_err(), Error::InvalidDecimalPointError);
@@ -148,7 +147,7 @@ mod test {
         #[test]
         fn parse_test() {
             let actual = parse(&[0b00000111, 0b11011011, 0b01101101]).unwrap();
-            assert_eq!(72.5f64, actual);
+            assert_eq!(725, actual);
         }
     }
 }

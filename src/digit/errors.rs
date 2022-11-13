@@ -1,4 +1,4 @@
-use thiserror::{Error as ThisError, Error};
+use thiserror::{Error as ThisError};
 
 #[derive(ThisError, Debug, PartialEq)]
 pub enum Error {

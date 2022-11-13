@@ -1,5 +1,7 @@
 extern crate core;
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::channel;
 use std::thread;
 use std::thread::sleep;
@@ -14,7 +16,8 @@ fn main() {
 
     let (stop_receive_tx, stop_receive_rx) = channel();
     let (stop_export_tx, stop_export_rx) = channel();
-    let (height_tx, height_rx) = channel();
+    let height =Arc::new( AtomicU32::new(0));
+    let height2 = height.clone();
 
     let receiver_handle = thread::spawn(move || {
         loop {
@@ -43,27 +46,25 @@ fn main() {
             }
 
             let digit_bin: [u8; 3] = [packet[1], packet[2], packet[3]];
-            let height = match digit::parse(&digit_bin) {
+            let new_height = match digit::parse(&digit_bin) {
                 Ok(h) => h,
                 Err(e) => {
                     println!("{:?}", e);
                     continue;
                 }
             };
-            height_tx.send(height).unwrap();
+            height.store(new_height,Ordering::Relaxed);
         }
     });
 
     let export_thread = thread::spawn(move || {
-        let mut height = f64::NAN;
+        let mut latest_height = 0;
         loop {
             if stop_export_rx.recv().is_ok() {
                 break;
             }
-            if let Some(h) = height_rx.try_iter().last() {
-                height = h;
-            }
-            println!("height: {}", height);
+            latest_height= height2.load(Ordering::Relaxed);
+            println!("height: {}", latest_height);
             thread::sleep(Duration::from_millis(500));
         }
     });
