@@ -64,8 +64,8 @@ impl<R: Read> FlexiConnection<R> {
             (ParserState::WaitStart, START_BYTE) => {
                 Ok(ParserState::WaitLength)
             }
-            (ParserState::WaitStart, _) => {
-                Err(Error::MalformedPacketError("failed to get first byte".to_string()))
+            (ParserState::WaitStart, b) => {
+                Err(Error::MalformedPacketError(format!("failed to get first byte. got {:X}", b)))
             }
             (ParserState::WaitLength, l) => {
                 Ok(ParserState::WaitBody(l as usize, Vec::with_capacity(l as usize)))
