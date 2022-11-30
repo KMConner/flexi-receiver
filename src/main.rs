@@ -39,6 +39,10 @@ fn main() {
         }
 
         let digit_bin: [u8; 3] = [packet[1], packet[2], packet[3]];
+        if digit_bin == [0, 0, 0] {
+            continue;
+        }
+
         let new_height = match digit::parse(&digit_bin) {
             Ok(h) => h,
             Err(e) => {
@@ -46,6 +50,7 @@ fn main() {
                 continue;
             }
         };
+        println!("Height {}mm", new_height);
         gauge!("desk_height", new_height as f64);
     }
 }
