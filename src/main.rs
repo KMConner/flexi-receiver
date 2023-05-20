@@ -12,8 +12,8 @@ fn main() {
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 8080);
     register_gauge!("desk_height");
     PrometheusBuilder::new().with_http_listener(addr).install().unwrap();
-
-    let serial_connection = serialport::new("/dev/ttyS0", 9600).open().unwrap();
+    let device = std::env::var("SERIAL_PORT").unwrap_or("/dev/ttyS0".to_string());
+    let serial_connection = serialport::new(&device, 9600).open().unwrap();
     let mut flexi_connection = serial::FlexiConnection::new(serial_connection);
 
     loop {
