@@ -1,0 +1,40 @@
+name: Release binary
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libudev-dev build-essential gcc-12-arm-linux-gnueabihf
+        env:
+          DEBIAN_FRONTEND: noninteractive
+      - name: configure linker
+        run: |
+          mkdir .cargo
+          echo "[target.armv7-unknown-linux-musleabihf]" >> .cargo/config
+          echo 'linker = "arm-linux-gnueabihf-gcc-12"' >> .cargo/config
+      - name: Build
+        run: |
+          rustup target add armv7-unknown-linux-musleabihf
+          cargo build --target=armv7-unknown-linux-musleabihf --release
+      - uses: ncipollo/release-action@v1
+        with:
+          artifacts: "target/armv7-unknown-linux-musleabihf/release/flexi_receiver"
+          makeLatest: true
